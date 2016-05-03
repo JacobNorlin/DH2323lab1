@@ -20,13 +20,15 @@ struct Intersection
 // ----------------------------------------------------------------------------
 // GLOBAL VARIABLES
 
-const int SCREEN_WIDTH = 500;
-const int SCREEN_HEIGHT = 500;
-const float focalLength = SCREEN_HEIGHT / 2;
-const vec3 cameraPos(0, 0, -2);
+const int SCREEN_WIDTH = 200;
+const int SCREEN_HEIGHT = 200;
+const float focalLength = SCREEN_HEIGHT;
+vec3 cameraPos(0, 0, -3);
 SDL_Surface* screen;
 int t;
 vector<Triangle> triangles;
+mat3 R;
+float yaw;
 
 Intersection intersection;
 // ----------------------------------------------------------------------------
@@ -42,17 +44,17 @@ bool ClosestIntersection(
 	);
 void planeIntersection(Triangle triangle, vec3 start, vec3 dir, vec3& ret);
 bool intersectionInTriangle(vec3 intersectingPoint);
+void rotateVector(vec3& v);
 
 int main( int argc, char* argv[] )
 {
 	LoadTestModel(triangles);
 	screen = InitializeSDL( SCREEN_WIDTH, SCREEN_HEIGHT );
 	t = SDL_GetTicks();	// Set start value for timer.
-	Draw();
 	while( NoQuitMessageSDL() )
 	{
 		Update();
-		
+		Draw();
 	}
 
 	SDL_SaveBMP( screen, "screenshot.bmp" );
@@ -63,10 +65,34 @@ void Update()
 {
 	// Compute frame time:
 	int t2 = SDL_GetTicks();
-	float dt = float(t2-t);
+	float dt = float(t2 - t);
 	t = t2;
+	if (dt < 20) {
+		SDL_Delay(20 - dt);
+	}
 	cout << "Render time: " << dt << " ms." << endl;
-}
+	Uint8* keystate = SDL_GetKeyState(0);
+	if (keystate[SDLK_UP])
+	{
+		vec3 dt(0, 0, 1);
+		rotateVector(dt);
+		cameraPos += dt;
+	}
+	if (keystate[SDLK_DOWN])
+	{
+		vec3 dt(0, 0, 1);
+		rotateVector(dt);
+		cameraPos -= dt;
+	}
+	if (keystate[SDLK_LEFT])
+	{
+		yaw -= 0.05;
+	}
+	if (keystate[SDLK_RIGHT])
+	{
+		yaw += 0.05;
+	}
+}
 
 void Draw()
 {
@@ -80,10 +106,10 @@ void Draw()
 			vec3 dir(x - (SCREEN_WIDTH / 2), y - (SCREEN_HEIGHT / 2), focalLength);
 			dir = glm::normalize(dir);
 
-			
+			rotateVector(dir);
 			if (ClosestIntersection(cameraPos, dir, triangles, intersection)) {
-				Triangle t = triangles[intersection.triangleIndex];
-				PutPixelSDL(screen, x, y, t.color);
+				
+				PutPixelSDL(screen, x, y, triangles[intersection.triangleIndex].color);
 			}
 			else {
 				PutPixelSDL(screen, x, y, vec3(0,0,0));
@@ -111,7 +137,9 @@ void Draw()
 	for (int i = 0; i < triangles.size(); i++) {
 		Triangle triangle = triangles[i];
 				vec3 intersectingPoint;
-		planeIntersection(triangle, start, dir, intersectingPoint);
+		
+		planeIntersection(triangles[i], cameraPos, dir, intersectingPoint);
+		
 
 		if (intersectionInTriangle(intersectingPoint)) {
 			float r = abs(intersectingPoint.x);
@@ -144,4 +172,16 @@ void planeIntersection(Triangle triangle, vec3 start, vec3 dir, vec3& ret) {
 	vec3 b = start - v0;
 	mat3 A(-dir, e1, e2);
 	ret = glm::inverse(A) * b;
+
+
+}
+void rotateVector(vec3& v)
+{
+	vec3 r1(cos(yaw), 0, sin(yaw));
+	vec3 r2(0, 1, 0);
+	vec3 r3(-sin(yaw), 0, cos(yaw));
+
+	v.x = glm::dot(r1, v);
+	v.y = glm::dot(r2, v);
+	v.z = glm::dot(r3, v);
 }
