@@ -4,6 +4,8 @@
 #include "SDLauxiliary.h"
 #include "TestModel.h"
 
+# define M_PI           3.14159265358979323846
+
 using namespace std;
 using glm::vec3;
 using glm::mat3;
@@ -20,8 +22,8 @@ struct Intersection
 // ----------------------------------------------------------------------------
 // GLOBAL VARIABLES
 
-const int SCREEN_WIDTH = 200;
-const int SCREEN_HEIGHT = 200;
+const int SCREEN_WIDTH = 400;
+const int SCREEN_HEIGHT = 400;
 const float focalLength = SCREEN_HEIGHT;
 vec3 cameraPos(0, 0, -3);
 SDL_Surface* screen;
@@ -29,7 +31,8 @@ int t;
 vector<Triangle> triangles;
 mat3 R;
 float yaw;
-
+vec3 lightPos(0, -0.5, -0.7);
+vec3 lightColor = 14.f * vec3(1, 1, 1);
 Intersection intersection;
 // ----------------------------------------------------------------------------
 // FUNCTIONS
@@ -45,6 +48,9 @@ bool ClosestIntersection(
 void planeIntersection(Triangle triangle, vec3 start, vec3 dir, vec3& ret);
 bool intersectionInTriangle(vec3 intersectingPoint);
 void rotateVector(vec3& v);
+vec3 DirectLight(const Intersection& i);
+float D(float P, vec3 rv, vec3 nv, float r);
+
 
 int main( int argc, char* argv[] )
 {
@@ -92,6 +98,14 @@ void Update()
 	{
 		yaw += 0.05;
 	}
+	if (keystate[SDLK_w])
+		lightPos += vec3(0,0,0.5);
+	if (keystate[SDLK_s])
+		lightPos -= vec3(0, 0, 0.5);
+	if (keystate[SDLK_a])
+		lightPos -= vec3(0.5, 0, 0);
+	if (keystate[SDLK_d])
+		lightPos += vec3(0.5, 0, 0);
 }
 
 void Draw()
@@ -109,7 +123,7 @@ void Draw()
 			rotateVector(dir);
 			if (ClosestIntersection(cameraPos, dir, triangles, intersection)) {
 				
-				PutPixelSDL(screen, x, y, triangles[intersection.triangleIndex].color);
+				PutPixelSDL(screen, x, y, DirectLight(intersection));
 			}
 			else {
 				PutPixelSDL(screen, x, y, vec3(0,0,0));
@@ -140,12 +154,13 @@ void Draw()
 		
 		planeIntersection(triangles[i], cameraPos, dir, intersectingPoint);
 		
-
 		if (intersectionInTriangle(intersectingPoint)) {
 			float r = abs(intersectingPoint.x);
 			if (r < minDistance) {
 				minDistance = r;
 				closestIntersection.triangleIndex = i;
+				closestIntersection.distance = r;
+				closestIntersection.position = r*dir;
 				foundIntersection = true;
 			}
 		}
@@ -172,9 +187,8 @@ void planeIntersection(Triangle triangle, vec3 start, vec3 dir, vec3& ret) {
 	vec3 b = start - v0;
 	mat3 A(-dir, e1, e2);
 	ret = glm::inverse(A) * b;
-
-
 }
+
 void rotateVector(vec3& v)
 {
 	vec3 r1(cos(yaw), 0, sin(yaw));
@@ -184,4 +198,24 @@ void rotateVector(vec3& v)
 	v.x = glm::dot(r1, v);
 	v.y = glm::dot(r2, v);
 	v.z = glm::dot(r3, v);
+}
+
+vec3 DirectLight(const Intersection& i) {
+	Triangle t = triangles[i.triangleIndex];
+	vec3 lighting(0, 0, 0);
+	Intersection shadowIntersection;
+	vec3 dir = lightPos - i.position;
+	float distanceToLight = glm::length(dir);
+	dir = glm::normalize(dir);
+	if (ClosestIntersection(i.position, dir, triangles, shadowIntersection))
+	{
+		if (shadowIntersection.distance <= distanceToLight) {
+				lighting = D(1, dir, t	.normal, 1)*lightColor*t.color;
+		}
+	}
+	return lighting;
+}
+
+float D(float P, vec3 rv, vec3 nv, float r) {
+	return (P * fmax(glm::dot(rv, nv), 0)) / (4 * M_PI * pow(r,2));
 }
