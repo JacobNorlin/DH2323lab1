@@ -17,12 +17,15 @@ const int SCREEN_HEIGHT = 500;
 SDL_Surface* screen;
 int t;
 vector<Triangle> triangles;
+vec3 cameraPos(0, 0, -3.001);
+float f = SCREEN_HEIGHT;
 
 // ----------------------------------------------------------------------------
 // FUNCTIONS
 
 void Update();
 void Draw();
+void VertexShader(const vec3&, ivec2& p);
 
 int main( int argc, char* argv[] )
 {
@@ -103,6 +106,13 @@ void Draw()
 		vertices[2] = triangles[i].v2;
 
 		// Add drawing
+		for (int v = 0; v<3; ++v)
+		{
+			ivec2 projPos;
+			VertexShader(vertices[v], projPos);
+			vec3 color(1, 1, 1);
+			PutPixelSDL(screen, projPos.x, projPos.y, color);
+		}
 	}
 	
 	if ( SDL_MUSTLOCK(screen) )
@@ -110,3 +120,11 @@ void Draw()
 
 	SDL_UpdateRect( screen, 0, 0, 0, 0 );
 }
+
+void VertexShader(const vec3& v, ivec2& p) {
+	vec3 c = (cameraPos - v);//*R;
+	p.x = f*(c.x / c.z) + (SCREEN_WIDTH / 2);
+	p.y = f*(c.y / c.z) + (SCREEN_HEIGHT / 2);
+
+}
+
