@@ -45,7 +45,8 @@ void Draw();
 void VertexShader(const vec3&, Pixel& p);
 void Interpolate(ivec2 a, ivec2 b, vector<ivec2>& result);
 void Interpolate(Pixel a, Pixel b, vector<Pixel>& result);
-void DrawLineSDL(SDL_Surface* surface, Pixel a, Pixel b, vec3 color);void DrawPolygonEdges(const vector<vec3>& vertices);void rotateVector(vec3& v);void DrawRows(const vector<Pixel>& leftPixels, const vector<Pixel>& rightPixels);void DrawPolygon(const vector<vec3>& vertices);void ComputePolygonRows(const vector<Pixel>& vertexPixels, vector<Pixel>& leftPixels, vector<Pixel>& rightPixels);
+void DrawLineSDL(SDL_Surface* surface, Pixel a, Pixel b, vec3 color);void DrawPolygonEdges(const vector<vec3>& vertices);void updateRotationMatrix();
+void DrawRows(const vector<Pixel>& leftPixels, const vector<Pixel>& rightPixels);void DrawPolygon(const vector<vec3>& vertices);void ComputePolygonRows(const vector<Pixel>& vertexPixels, vector<Pixel>& leftPixels, vector<Pixel>& rightPixels);
 
 int main( int argc, char* argv[] )
 {
@@ -75,22 +76,27 @@ void Update()
 	if (keystate[SDLK_UP])
 	{
 		vec3 dt(0, 0, 0.1);
-		rotateVector(dt);
-		cameraPos += dt;
+		cameraPos += R*dt;
 	}
 		
 	if (keystate[SDLK_DOWN])
 	{
 		vec3 dt(0, 0, 0.1);
-		rotateVector(dt);
-		cameraPos -= dt;
+		cameraPos -= R*dt;
 	}
 
 	if (keystate[SDLK_RIGHT])
-		yaw += 0.05;
-
-	if (keystate[SDLK_LEFT])
+	{
 		yaw -= 0.05;
+		updateRotationMatrix();
+	}
+		
+
+	if (keystate[SDLK_LEFT]) {
+		yaw += 0.05;
+		updateRotationMatrix();
+	}
+		
 
 	if( keystate[SDLK_RSHIFT] )
 		cameraPos.y -= 0.1;
@@ -152,10 +158,10 @@ void Draw()
 }
 
 void VertexShader(const vec3& v, Pixel& p) {
-	vec3 c = (cameraPos - v);
-	p.x = f*(c.x / c.z) + (SCREEN_WIDTH / 2);
-	p.y = f*(c.y / c.z) + (SCREEN_HEIGHT / 2);
-	p.zinv = glm::length(c);
+	vec3 pos = (cameraPos - v) * R;
+	p.x = f*(pos.x / pos.z) + (SCREEN_WIDTH / 2);
+	p.y = f*(pos.y / pos.z) + (SCREEN_HEIGHT / 2);
+	p.zinv = 1 / pos.z;
 
 }
 
@@ -233,15 +239,13 @@ void DrawPolygonEdges(const vector<vec3>& vertices)
 	}
 }
 
-void rotateVector(vec3& v)
+void updateRotationMatrix()
 {
 	vec3 r1(cos(yaw), 0, sin(yaw));
 	vec3 r2(0, 1, 0);
 	vec3 r3(-sin(yaw), 0, cos(yaw));
 
-	v.x = glm::dot(r1, v);
-	v.y = glm::dot(r2, v);
-	v.z = glm::dot(r3, v);
+	R = mat3(r1, r2, r3);
 }
 
 void ComputePolygonRows(const vector<Pixel>& vertexPixels, vector<Pixel>& leftPixels,
