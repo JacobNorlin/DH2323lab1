@@ -124,10 +124,12 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="..\lab1\Utils.h" />
     <ClInclude Include="SDLauxiliary.h" />
     <ClInclude Include="TestModel.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\lab1\Utils.cpp" />
     <ClCompile Include="skeleton.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

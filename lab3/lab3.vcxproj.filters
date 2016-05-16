@@ -21,9 +21,15 @@
     <ClInclude Include="TestModel.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\lab1\Utils.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="skeleton.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\lab1\Utils.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
