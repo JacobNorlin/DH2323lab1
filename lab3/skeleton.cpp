@@ -72,17 +72,15 @@ void Update()
 	cout << "Render time: " << dt << " ms." << endl;
 
 	Uint8* keystate = SDL_GetKeyState(0);
-
+	vec3 forward(0, 0, 0.1);
 	if (keystate[SDLK_UP])
 	{
-		vec3 dt(0, 0, 0.1);
-		cameraPos += R*dt;
+		cameraPos += R*forward;
 	}
 		
 	if (keystate[SDLK_DOWN])
 	{
-		vec3 dt(0, 0, 0.1);
-		cameraPos -= R*dt;
+		cameraPos -= R*forward;
 	}
 
 	if (keystate[SDLK_RIGHT])

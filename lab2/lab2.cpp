@@ -22,8 +22,8 @@ struct Intersection
 // ----------------------------------------------------------------------------
 // GLOBAL VARIABLES
 
-const int SCREEN_WIDTH = 400;
-const int SCREEN_HEIGHT = 400;
+const int SCREEN_WIDTH = 300;
+const int SCREEN_HEIGHT = 300;
 const float focalLength = SCREEN_HEIGHT;
 vec3 cameraPos(0, 0, -3);
 SDL_Surface* screen;
@@ -31,6 +31,7 @@ int t;
 vector<Triangle> triangles;
 mat3 R;
 float yaw;
+float cameraSpeed = 0.001;
 vec3 lightPos(0, -0.5, -0.7);
 vec3 lightColor = 14.f * vec3(1, 1, 1);
 Intersection intersection;
@@ -47,7 +48,7 @@ bool ClosestIntersection(
 	);
 void planeIntersection(Triangle triangle, vec3 start, vec3 dir, vec3& ret);
 bool intersectionInTriangle(vec3 intersectingPoint);
-void rotateVector(vec3& v);
+void updateRotationMatrix();
 vec3 DirectLight(const Intersection& i);
 float D(float P, vec3 rv, vec3 nv, float r);
 
@@ -78,25 +79,27 @@ void Update()
 	}
 	cout << "Render time: " << dt << " ms." << endl;
 	Uint8* keystate = SDL_GetKeyState(0);
+
+	vec3 forward(R[2][0], R[2][1], R[2][2]);
+
 	if (keystate[SDLK_UP])
 	{
-		vec3 dt(0, 0, 1);
-		rotateVector(dt);
-		cameraPos += dt;
+		cameraPos += forward*dt*cameraSpeed;
 	}
 	if (keystate[SDLK_DOWN])
 	{
-		vec3 dt(0, 0, 1);
-		rotateVector(dt);
-		cameraPos -= dt;
+		cameraPos -= forward*dt*cameraSpeed;
+
 	}
 	if (keystate[SDLK_LEFT])
 	{
-		yaw -= 0.05;
+		yaw -= 0.01;
+		updateRotationMatrix();
 	}
 	if (keystate[SDLK_RIGHT])
 	{
-		yaw += 0.05;
+		updateRotationMatrix();
+		yaw += 0.01;
 	}
 	if (keystate[SDLK_w])
 		lightPos += vec3(0,0,0.5);
@@ -118,9 +121,8 @@ void Draw()
 		for( int x=0; x<SCREEN_WIDTH; ++x )
 		{
 			vec3 dir(x - (SCREEN_WIDTH / 2), y - (SCREEN_HEIGHT / 2), focalLength);
-			dir = glm::normalize(dir);
+			dir = R * dir;
 
-			rotateVector(dir);
 			if (ClosestIntersection(cameraPos, dir, triangles, intersection)) {
 				
 				PutPixelSDL(screen, x, y, DirectLight(intersection));
@@ -189,15 +191,13 @@ void planeIntersection(Triangle triangle, vec3 start, vec3 dir, vec3& ret) {
 	ret = glm::inverse(A) * b;
 }
 
-void rotateVector(vec3& v)
+void updateRotationMatrix()
 {
 	vec3 r1(cos(yaw), 0, sin(yaw));
 	vec3 r2(0, 1, 0);
 	vec3 r3(-sin(yaw), 0, cos(yaw));
+	R = mat3(r1, r2, r2);
 
-	v.x = glm::dot(r1, v);
-	v.y = glm::dot(r2, v);
-	v.z = glm::dot(r3, v);
 }
 
 vec3 DirectLight(const Intersection& i) {
