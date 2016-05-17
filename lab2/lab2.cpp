@@ -210,7 +210,7 @@ vec3 DirectLight(const Intersection& i) {
 	if (ClosestIntersection(i.position, dir, triangles, shadowIntersection))
 	{
 		if (shadowIntersection.distance <= distanceToLight) {
-				lighting = D(1, dir, t	.normal, 1)*lightColor*t.color;
+				lighting = D(1, dir, t.normal, 1)*lightColor*t.color;
 		}
 	}
 	return lighting;
