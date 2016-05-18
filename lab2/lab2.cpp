@@ -34,7 +34,10 @@ float yaw;
 float cameraSpeed = 0.001;
 vec3 lightPos(0, -0.5, -0.7);
 vec3 lightColor = 14.f * vec3(1, 1, 1);
+vec3 indirectLight = 0.1f*vec3(1, 1, 1);
 Intersection intersection;
+
+bool SHADOWS = true;
 // ----------------------------------------------------------------------------
 // FUNCTIONS
 
@@ -46,7 +49,6 @@ bool ClosestIntersection(
 	const vector<Triangle>& triangles,
 	Intersection& closestIntersection
 	);
-void planeIntersection(Triangle triangle, vec3 start, vec3 dir, vec3& ret);
 bool intersectionInTriangle(vec3 intersectingPoint);
 void updateRotationMatrix();
 vec3 DirectLight(const Intersection& i);
@@ -93,13 +95,13 @@ void Update()
 	}
 	if (keystate[SDLK_LEFT])
 	{
-		yaw -= 0.01;
+		yaw += 0.001*dt;
 		updateRotationMatrix();
 	}
 	if (keystate[SDLK_RIGHT])
 	{
+		yaw -= 0.001*dt;
 		updateRotationMatrix();
-		yaw += 0.01;
 	}
 	if (keystate[SDLK_w])
 		lightPos += vec3(0,0,0.5);
@@ -109,6 +111,18 @@ void Update()
 		lightPos -= vec3(0.5, 0, 0);
 	if (keystate[SDLK_d])
 		lightPos += vec3(0.5, 0, 0);
+	if (keystate[SDLK_q])
+		lightPos.y -= 0.5;
+	if (keystate[SDLK_e])
+		lightPos.y += 0.5;
+	if (keystate[SDLK_r]) {
+		SHADOWS = !SHADOWS;
+		SDL_Delay(200);
+	}
+	if (keystate[SDLK_f])
+		lightColor *= 1.5;
+	if (keystate[SDLK_g])
+		lightColor /= 1.5;
 }
 
 void Draw()
@@ -125,7 +139,7 @@ void Draw()
 
 			if (ClosestIntersection(cameraPos, dir, triangles, intersection)) {
 				
-				PutPixelSDL(screen, x, y, DirectLight(intersection));
+				PutPixelSDL(screen, x, y, triangles[intersection.triangleIndex].color*(DirectLight(intersection)+indirectLight));
 			}
 			else {
 				PutPixelSDL(screen, x, y, vec3(0,0,0));
@@ -154,15 +168,23 @@ void Draw()
 		Triangle triangle = triangles[i];
 				vec3 intersectingPoint;
 		
-		planeIntersection(triangles[i], cameraPos, dir, intersectingPoint);
-		
-		if (intersectionInTriangle(intersectingPoint)) {
-			float r = abs(intersectingPoint.x);
+		vec3 v0 = triangle.v0;
+		vec3 v1 = triangle.v1;
+		vec3 v2 = triangle.v2;
+		vec3 e1 = v1 - v0;
+		vec3 e2 = v2 - v0;
+		vec3 b = start - v0;
+		mat3 A(-dir, e1, e2);
+		vec3 x = glm::inverse(A) * b;
+
+		if (intersectionInTriangle(x)) {
+			vec3 intersectingPoint = v0 + (e1 * x.y) + (e2 * x.z);
+			float r = glm::distance(start, intersectingPoint);
 			if (r < minDistance) {
 				minDistance = r;
 				closestIntersection.triangleIndex = i;
 				closestIntersection.distance = r;
-				closestIntersection.position = r*dir;
+				closestIntersection.position = intersectingPoint;
 				foundIntersection = true;
 			}
 		}
@@ -173,49 +195,45 @@ void Draw()
 
 bool intersectionInTriangle(vec3 intersectingPoint)
 {
+	float t = intersectingPoint.x;
 	float u = intersectingPoint.y;
 	float v = intersectingPoint.z;
 
-	return ((u + v) < 1 && u >= 0 && v >= 0);
+	return u >= 0 && v >= 0 && (u + v) <= 1 && t >= 0;
 		
 }
 
-void planeIntersection(Triangle triangle, vec3 start, vec3 dir, vec3& ret) {
-	vec3 v0 = triangle.v0;
-	vec3 v1 = triangle.v1;
-	vec3 v2 = triangle.v2;
-	vec3 e1 = v1 - v0;
-	vec3 e2 = v2 - v0;
-	vec3 b = start - v0;
-	mat3 A(-dir, e1, e2);
-	ret = glm::inverse(A) * b;
-}
 
 void updateRotationMatrix()
 {
 	vec3 r1(cos(yaw), 0, sin(yaw));
 	vec3 r2(0, 1, 0);
 	vec3 r3(-sin(yaw), 0, cos(yaw));
-	R = mat3(r1, r2, r2);
 
+	R = mat3(r1, r2, r3);
 }
 
 vec3 DirectLight(const Intersection& i) {
 	Triangle t = triangles[i.triangleIndex];
-	vec3 lighting(0, 0, 0);
 	Intersection shadowIntersection;
-	vec3 dir = lightPos - i.position;
-	float distanceToLight = glm::length(dir);
-	dir = glm::normalize(dir);
-	if (ClosestIntersection(i.position, dir, triangles, shadowIntersection))
-	{
-		if (shadowIntersection.distance <= distanceToLight) {
-				lighting = D(1, dir, t.normal, 1)*lightColor*t.color;
+	
+	vec3 lightToIntersection = lightPos - i.position;
+	float distance = glm::length(lightToIntersection);
+	vec3 r = glm::normalize(lightToIntersection);
+	vec3 intersectionToLight = glm::normalize(i.position - lightPos);
+	if (SHADOWS) {
+		if (ClosestIntersection(lightPos, intersectionToLight, triangles, shadowIntersection))
+		{
+			if (shadowIntersection.distance < distance - 0.000001f) {//Some kind of rounding error that causes black dots, removing a bit fixes it.
+				return vec3(0, 0, 0);
+			}
 		}
 	}
-	return lighting;
+	return D(1, r, t.normal, distance)*lightColor;;
 }
 
 float D(float P, vec3 rv, vec3 nv, float r) {
-	return (P * fmax(glm::dot(rv, nv), 0)) / (4 * M_PI * pow(r,2));
+	float n = glm::dot(rv, nv);
+	float d = 4 * M_PI * r * r;
+	return (P * fmax(n, 0)) / d;
 }
